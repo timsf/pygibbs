@@ -1,191 +1,259 @@
 """
-Provides routines for estimating multivariate normal conjugate, such that:
-    X[i·]|(mu, Sig) ~ Mv-Normal(mu, Sig)
-    where mu is the mean vector and Sig is the covariance matrix.
+Provides routines for estimating multivariate normals, ie:
+    x[i·]|(mu, sig) ~ Mv-Normal(mu, sig)
+    where mu is the mean vector and sig is the covariance matrix.
 
-The prior distribution over (mu, Sig) is inv-wishart:
-    Sig|(v0, S0) ~ Inv-Wishart(v0, S0)
+The prior distribution over (sig,) is inv-wishart:
+    sig|(v, s) ~ Inv-Wishart(v, s)
 
-The posterior distribution over (mu, Sig) is inv-wishart:
-    Sig|(X, mu, vN, SN) ~ Inv-Wishart(vN, SN)
+The posterior distribution over (sig,) is inv-wishart:
+    sig|(x, vN, sN) ~ Inv-Wishart(vN, sN)
 
 Data
 ----
-X : Matrix[nobs, nvar]
+nobs : int(>0) # number of observations
+nvar : int(>0) # number of variables
+x : np.ndarray[nobs, nvar] # data matrix
+w : np.ndarray(>0)[nobs] # observation weights
 
 Parameters
 ----------
-mu (known) : Vector[nvar]
-Sig : Matrix[nvar, nvar]
+mu : np.ndarray[nvar] # mean vector (known)
+sig : np.ndarray(PSD)[nvar, nvar] # variance matrix
 
 Hyperparameters
 ---------------
-v >= 0 : Real
-S >= 0 (positive semi-definite): Matrix[nvar, nvar]
+v : float(>0) # variance dof
+s : np.ndarray(PSD)[nvar, nvar] # variance location matrix
 """
 
 import numpy as np
 from scipy.special import multigammaln
-from scipy.stats import multivariate_normal, invwishart
+from scipy.stats import invwishart
 
-from pygibbs.tools.densities import eval_mvnorm as eval_loglik
+from pygibbs.tools.densities import eval_mvnorm as eval_loglik, eval_matt
 
 
-def update(X, mu, v0, S0):
+def update(x: np.ndarray, mu: np.ndarray, v: float, s: np.ndarray, w: np.ndarray=None) -> (float, np.ndarray):
     """Compute the hyperparameters of the posterior parameter distribution.
 
-    Parameters
-    ----------
-    X, mu, v0, S0 : see module docstring
+    :param x:
+    :param mu:
+    :param v:
+    :param s:
+    :param w:
+    :returns: posterior hyperparameters
 
-    Returns
-    -------
-    tuple (float, np.ndarray)
-        posterior hyperparameters (vN, SN)
+    >>> data, param = _generate_fixture(3, 2, seed=666)
+    >>> x, mu = data
+    >>> v, s = param
+    >>> update(x, mu, v, s)
+    (7, array([[6.38317859, 1.52492303],
+           [1.52492303, 5.06872541]]))
+    >>> w = np.ones(3)
+    >>> update(x, mu, v, s, w=w)
+    (7, array([[6.38317859, 1.52492303],
+           [1.52492303, 5.06872541]]))
     """
 
-    nobs, nvar = X.shape
+    nobs, nvar = x.shape
     if nobs != 0:
-        X_demean = X - mu
-        X_cov = np.mean([np.outer(X_demean[i], X_demean[i]) for i in range(nobs)], 0)
+        if w is not None:
+            x = np.diag(w) @ x
+        x_cov = np.mean([np.outer(x_i, x_i) for x_i in x - mu], 0)
     else:
-        X_mean = np.zeros(nvar)
-        X_cov = np.zeros((nvar, nvar))
+        x_cov = np.zeros((nvar, nvar))
 
-    vN = v0 + nobs
-    SN = S0 + nobs * X_cov
+    vN = v + nobs
+    sN = s + nobs * x_cov
 
-    return (vN, SN)
+    return (vN, sN)
 
 
-def weighted_update(X, w, mu, v0, S0):
-    """Compute weighted hyperparameters of the posterior parameter distribution.
+def marginalize(v: float, s: np.ndarray) -> 3 * (np.ndarray,):
+    """Compute the parameters of the marginal likelihood.
 
-    Parameters
-    ----------
-    X : see module docstring
-    w : np.ndarray in R+^nobs
-        weight vector
-    mu, v0, S0 : see module docstring
+    :param v:
+    :param s:
+    :returns: parameters of marginal likelihood
 
-    Returns
-    -------
-    tuple (float, np.ndarray)
-        posterior hyperparameters (vN, SN)
+    >>> data, param = _generate_fixture(3, 2, seed=666)
+    >>> _, mu = data
+    >>> v, s = param
+    >>> marginalize(v, s)
+    (array([[1., 0.],
+           [0., 1.]]), 4)
     """
 
-    nobs, nvar = X.shape
-    if nobs != 0:
-        X_mean = np.mean(w[:, np.newaxis] * X, 0)
-        X_demean = X - mu
-        X_cov = np.mean([w[i] * np.outer(X_demean[i], X_demean[i]) for i in range(nobs)], 0)
-    else:
-        X_mean = np.zeros(nvar)
-        X_cov = np.zeros((nvar, nvar))
-
-    vN = v0 + nobs
-    SN = S0 + nobs * X_cov
-
-    return (vN, SN)
+    return (s / v, v)
 
 
-def sample_param(ndraws, v, S):
+def sample_param(ndraws: int, v: float, s: np.ndarray) -> (np.ndarray,):
     """Draw samples from the parameter distribution given hyperparameters.
 
-    Parameters
-    ----------
-    ndraws : int in N+
-        number of draws to be sampled
-    v, S : see module docstring
+    :param ndraws: number of samples to be drawn
+    :param v:
+    :param s:
+    :returns: samples from the parameter distribution
 
-    Returns
-    -------
-    tuple (np.ndarray in PSD_nvar^ndraws,)
-        parameter draws (Sig,)
+    >>> data, param = _generate_fixture(3, 2, seed=666)
+    >>> x, _ = data
+    >>> v, s = param
+    >>> sample_param(1, v, s)
+    (array([[[ 2.77468306, -0.06137196],
+            [-0.06137196,  3.8732027 ]]]),)
     """
 
-    Sig = invwishart.rvs(v, S, ndraws)
-    if ndraws == 1:
-        Sig = Sig[np.newaxis]
+    sig = invwishart.rvs(v, s, ndraws).reshape((ndraws, *s.shape))
 
-    return (Sig,)
+    return (sig,)
 
 
-def sample_data(ndraws, mu, v, S):
+def sample_data(ndraws: int, mu: np.ndarray, v: float, s: np.ndarray) -> np.ndarray:
     """Draw samples from the marginal data distribution given hyperparameters.
 
-    Parameters
-    ----------
-    ndraws : int in N+
-        number of draws to be sampled
-    mu, v, S : see module docstring
+    :param ndraws: number of samples to be drawn
+    :param mu:
+    :param v:
+    :param s:
+    :returns: samples from the data distribution
 
-    Returns
-    -------
-    np.ndarray in R^(ndraws, nvar)
-        data draws
+    >>> data, param = _generate_fixture(3, 2, seed=666)
+    >>> _, mu = data
+    >>> v, s = param
+    >>> sample_data(1, mu, v, s)
+    array([[[ 0.03683928, -1.81367702]]])
     """
 
-    Sig = sample_param(ndraws, mu, v, S)
+    z = np.random.standard_normal((ndraws, mu.shape[0]))
+    sig = sample_param(ndraws, v, s)
+    x = mu + np.array([np.linalg.cholesky(sig_i) @ z_i for z_i, sig_i in zip(z, sig)])
 
-    X = np.array([
-        np.random.multivariate_normal(mu, Sig_i, 1).flatten()
-        for Sig_i in Sig])
-
-    return X
+    return x
 
 
-def eval_logmargin(X, mu, v0, S0):
+def eval_logmargin(x: np.ndarray, mu: np.ndarray, v: float, s: np.ndarray, w: np.ndarray=None) -> float:
     """Evaluate the log marginal likelihood or evidence given data and hyperparameters. You can evaluate the predictive density by passing posterior instead of prior hyperparameters.
 
-    Parameters
-    ----------
-    X, mu, v0, S0 : see module docstring
+    :param x:
+    :param mu:
+    :param v:
+    :param s:
+    :param w:
+    :returns: log marginal likelihood
 
-    Returns
-    -------
-    float
-        log marginal likelihood
+    >>> data, param = _generate_fixture(3, 2, seed=666)
+    >>> x, mu = data
+    >>> v, s = param
+    >>> eval_logmargin(x, mu, v, s)
+    -7.7817037865996035
+    >>> w = np.ones(3)
+    >>> eval_logmargin(x, mu, v, s, w=w)
+    -7.7817037865996035
     """
 
-    nobs, nvar = X.shape
-    vN, SN = update(X, mu, v0, S0)
+    nobs, nvar = x.shape
+    def nc(v, s):
+        return v / 2 * np.prod(np.linalg.slogdet(s)) - multigammaln(v / 2, nvar)
 
-    logdet = lambda A: np.prod(np.linalg.slogdet(A))
-    nc_lik = -np.prod(X.shape) / 2 * np.log(np.pi)
-    nc_prior = -multigammaln(v0 / 2, nvar) + v0 / 2 * logdet(S0)
-    nc_post = -multigammaln(vN / 2, nvar) + vN / 2 * logdet(SN)
-
-    return nc_lik + nc_prior - nc_post
+    return nc(v, s) - nc(*update(x, mu, v, s, w)) - nobs * nvar / 2 * np.log(np.pi)
 
 
-def get_ev(v, S):
+def get_ev(v: float, s: np.ndarray) -> (np.ndarray,):
     """Evaluate the expectation of parameters given hyperparameters.
 
-    Parameters
-    ----------
-    v, S : see module docstring
+    :param v:
+    :param s:
+    :returns: parameter expectations
 
-    Returns
-    -------
-    tuple (np.ndarray,)
-        parameter expectations (Sig,)
+    >>> _, param = _generate_fixture(3, 2, seed=666)
+    >>> v, s = param
+    >>> get_ev(v, s)
+    (array([[4., 0.],
+           [0., 4.]]),)
     """
 
-    return (S / (v - S.shape[0] - 1),)
+    return (s / (v - s.shape[0] - 1),)
 
 
-def get_mode(v, S):
+def get_mode(v: float, s: np.ndarray) -> (np.ndarray,):
     """Evaluate the mode of parameters given hyperparameters.
 
-    Parameters
-    ----------
-    v, S : see module docstring
+    :param v:
+    :param s:
+    :returns: parameter modes
 
-    Returns
-    -------
-    tuple (np.ndarray,)
-        parameter modes (Sig,)
+    >>> _, param = _generate_fixture(3, 2, seed=666)
+    >>> v, s = param
+    >>> get_mode(v, s)
+    (array([[0.57142857, 0.        ],
+           [0.        , 0.57142857]]),)
     """
 
-    return (S / (v + S.shape[0] + 1),)
+    return (s / (v + s.shape[0] + 1),)
+
+
+def _eval_logmargin_check(x: np.ndarray, mu: np.ndarray, v: np.ndarray, s: np.ndarray, w: np.ndarray=None) -> float:
+    """Evaluate the log marginal likelihood or evidence given data and hyperparameters. You can evaluate the predictive density by passing posterior instead of prior hyperparameters.
+
+    :param x:
+    :param mu:
+    :param v:
+    :param s:
+    :param w:
+    :returns: log marginal likelihood
+
+    >>> data, param = _generate_fixture(3, 2, seed=666)
+    >>> x, mu = data
+    >>> v, s = param
+    >>> l1 = eval_logmargin(x, mu, v, s)
+    >>> l2 = _eval_logmargin_check(x, mu, v, s)
+    >>> np.isclose(l1, l2)
+    True
+    >>> l1
+    >>> l2
+    """
+
+    nobs, nvar = x.shape
+    if w is not None:
+        x = np.diag(w) @ x
+    sig, nu = marginalize(v, s)
+
+    return eval_matt(x, mu, np.ones(nobs), sig, nu)
+
+
+def _generate_fixture(nobs: int, nvar: int, seed: int = 666) -> (2 * (np.ndarray,), 4 * (np.ndarray,)):
+    """Generate a set of input data.
+
+    :param nobs:
+    :param nvar:
+    :param seed: random number generator seed
+    :returns: generated data, generated hyperparameters
+
+    >>> data, param = _generate_fixture(3, 2, seed=666)
+    >>> data
+    (array([[ 0.82418808,  0.479966  ],
+           [ 1.17346801,  0.90904807],
+           [-0.57172145, -0.10949727]]), array([0., 0.]))
+    >>> param
+    (4, array([[4., 0.],
+           [0., 4.]]))
+    """
+
+    # ensure deterministic output
+    np.random.seed(seed)
+
+    # set input
+    x = np.random.standard_normal((nobs, nvar))
+    mu = np.zeros(nvar)
+
+    # set hyperparameters
+    v = nvar + 2
+    s = np.diag(np.ones(nvar)) * v
+
+    return ((x, mu), (v, s))
+
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()

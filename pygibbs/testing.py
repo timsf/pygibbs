@@ -15,3 +15,5 @@ S0 = (nfac, nfac * np.identity(nfac))
 
 map = hlm.estimate(1000, Y, X, S0, s0)
 samples = hlm.sample(1000, Y, X, S0, s0)
+
+pass
