@@ -25,7 +25,7 @@ rho : np.ndarray[2] # convergence rates for centered/non-centered parameterizati
 Block 2
 -------
 mu : np.ndarray[nvar] # loading distribution location vector
-sig : np.ndarray(PSD)[nvar, nvar] # loading distribution variance matrix
+sig : np.ndarray(PD)[nvar, nvar] # loading distribution variance matrix
 tau : float(>0) # emission distribution variance
 
 Hyperparameters

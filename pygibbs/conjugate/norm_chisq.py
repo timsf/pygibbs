@@ -43,13 +43,10 @@ def update(x: np.ndarray, mu: np.ndarray, v: np.ndarray, s: np.ndarray, w: np.nd
     :param w:
     :returns: posterior hyperparameters
 
-    >>> data, param = _generate_fixture(3, 2, seed=666)
+    >>> data, _, param = _generate_fixture(3, 2, seed=666)
     >>> x, mu = data
     >>> v, s = param
     >>> update(x, mu, v, s)
-    (array([6., 6.]), array([5.38317859, 4.06872541]))
-    >>> w = np.ones(3)
-    >>> update(x, mu, v, s, w=w)
     (array([6., 6.]), array([5.38317859, 4.06872541]))
     """
 
@@ -61,7 +58,7 @@ def update(x: np.ndarray, mu: np.ndarray, v: np.ndarray, s: np.ndarray, w: np.nd
     vN = v + nobs
     sN = s + nobs * x_var
 
-    return (vN, sN)
+    return vN, sN
 
 
 def marginalize(v: np.ndarray, s: np.ndarray) -> 3 * (np.ndarray,):
@@ -71,14 +68,14 @@ def marginalize(v: np.ndarray, s: np.ndarray) -> 3 * (np.ndarray,):
     :param s:
     :returns: parameters of marginal likelihood
 
-    >>> data, param = _generate_fixture(3, 2, seed=666)
+    >>> data, _, param = _generate_fixture(3, 2, seed=666)
     >>> _, mu = data
     >>> v, s = param
     >>> marginalize(v, s)
     (array([1., 1.]), array([3., 3.]))
     """
 
-    return (s / v, v)
+    return s / v, v
 
 
 def sample_param(ndraws: int, v: np.ndarray, s: np.ndarray) -> (np.ndarray,):
@@ -89,7 +86,7 @@ def sample_param(ndraws: int, v: np.ndarray, s: np.ndarray) -> (np.ndarray,):
     :param s:
     :returns: samples from the parameter distribution
 
-    >>> data, param = _generate_fixture(3, 2, seed=666)
+    >>> data, _, param = _generate_fixture(3, 2, seed=666)
     >>> x, _ = data
     >>> v, s = param
     >>> sample_param(1, v, s)
@@ -98,7 +95,7 @@ def sample_param(ndraws: int, v: np.ndarray, s: np.ndarray) -> (np.ndarray,):
 
     sig = s / np.random.chisquare(v, (ndraws, s.shape[0]))
 
-    return (sig,)
+    return sig,
 
 
 def sample_data(ndraws: int, mu: np.ndarray, v: np.ndarray, s: np.ndarray) -> np.ndarray:
@@ -110,7 +107,7 @@ def sample_data(ndraws: int, mu: np.ndarray, v: np.ndarray, s: np.ndarray) -> np
     :param s:
     :returns: samples from the data distribution
 
-    >>> data, param = _generate_fixture(3, 2, seed=666)
+    >>> data, _, param = _generate_fixture(3, 2, seed=666)
     >>> _, mu = data
     >>> v, s = param
     >>> sample_data(1, mu, v, s)
@@ -135,13 +132,10 @@ def eval_logmargin(x: np.ndarray, mu: np.ndarray, v: np.ndarray, s: np.ndarray, 
     :param w:
     :returns: log marginal likelihood
 
-    >>> data, param = _generate_fixture(3, 2, seed=666)
+    >>> data, _, param = _generate_fixture(3, 2, seed=666)
     >>> x, mu = data
     >>> v, s = param
     >>> eval_logmargin(x, mu, v, s)
-    -7.770320350482517
-    >>> w = np.ones(3)
-    >>> eval_logmargin(x, mu, v, s, w=w)
     -7.770320350482517
     """
 
@@ -159,13 +153,13 @@ def get_ev(v: np.ndarray, s: np.ndarray) -> (np.ndarray,):
     :param s:
     :returns: parameter expectations
 
-    >>> _, param = _generate_fixture(3, 2, seed=666)
+    >>> _, _, param = _generate_fixture(3, 2, seed=666)
     >>> v, s = param
     >>> get_ev(v, s)
     (array([3., 3.]),)
     """
 
-    return (s / (v - 2),)
+    return s / (v - 2),
 
 
 def get_mode(v: np.ndarray, s: np.ndarray) -> (np.ndarray,):
@@ -175,57 +169,22 @@ def get_mode(v: np.ndarray, s: np.ndarray) -> (np.ndarray,):
     :param s:
     :returns: parameter modes
 
-    >>> _, param = _generate_fixture(3, 2, seed=666)
+    >>> _, _, param = _generate_fixture(3, 2, seed=666)
     >>> v, s = param
     >>> get_mode(v, s)
     (array([0.6, 0.6]),)
     """
 
-    return (s / (v + 2),)
+    return s / (v + 2),
 
 
-def _eval_logmargin_check(x: np.ndarray, mu: np.ndarray, v: np.ndarray, s: np.ndarray, w: np.ndarray=None) -> float:
-    """Evaluate the log marginal likelihood or evidence given data and hyperparameters. You can evaluate the predictive density by passing posterior instead of prior hyperparameters.
-
-    :param x:
-    :param mu:
-    :param v:
-    :param s:
-    :param w:
-    :returns: log marginal likelihood
-
-    >>> data, param = _generate_fixture(3, 2, seed=666)
-    >>> x, mu = data
-    >>> v, s = param
-    >>> l1 = eval_logmargin(x, mu, v, s)
-    >>> l2 = _eval_logmargin_check(x, mu, v, s)
-    >>> np.isclose(l1, l2)
-    True
-    """
-
-    nobs, nvar = x.shape
-    if w is not None:
-        x = np.diag(w) @ x
-    sig, nu = marginalize(v, s)
-
-    return float(np.sum([eval_mvt(x.T[[j]], mu[j], np.repeat(sig[j], nobs), nu[j]) for j in range(nvar)]))
-
-
-def _generate_fixture(nobs: int, nvar: int, seed: int = 666) -> (2 * (np.ndarray,), 4 * (np.ndarray,)):
+def _generate_fixture(nobs: int = 3, nvar: int = 2, seed: int = 666) -> (2 * (np.ndarray,), 4 * (np.ndarray,)):
     """Generate a set of input data.
 
     :param nobs:
     :param nvar:
     :param seed: random number generator seed
-    :returns: generated data, generated hyperparameters
-
-    >>> data, param = _generate_fixture(3, 2, seed=666)
-    >>> data
-    (array([[ 0.82418808,  0.479966  ],
-           [ 1.17346801,  0.90904807],
-           [-0.57172145, -0.10949727]]), array([0., 0.]))
-    >>> param
-    (array([3., 3.]), array([3., 3.]))
+    :returns: generated data, ground truth, hyperparameters
     """
 
     # ensure deterministic output
@@ -235,11 +194,14 @@ def _generate_fixture(nobs: int, nvar: int, seed: int = 666) -> (2 * (np.ndarray
     x = np.random.standard_normal((nobs, nvar))
     mu = np.zeros(nvar)
 
+    # set ground truth
+    sig = np.ones(nvar)
+
     # set hyperparameters
     v = np.ones(nvar) + 2
     s = np.ones(nvar) * v
 
-    return ((x, mu), (v, s))
+    return (x, mu), (sig,), (v, s)
 
 
 if __name__ == '__main__':

@@ -1,34 +1,30 @@
+from typing import Callable
+
 import numpy as np
 
 
-def em(niter, data, priors, init, eval_obj, update_block1, update_block2, tol=1e-4):
+def em(niter: int,
+       data: tuple,
+       priors: tuple,
+       init: tuple,
+       eval_obj: Callable,
+       update_block1: Callable,
+       update_block2: Callable,
+       tol: float = 1e-4) -> (tuple, tuple):
     """Find the MAP estimator of the model with the EM algorithm.
 
-    parameters
-    ----------
-    niter : int in N+
-        maximum number of iterations
-    data : tuple
-        observed quantities
-    priors : tuple
-        prior hyperparameters for block2
-    init : tuple
-        initial block1 variable values
-    eval_obj : func
-        objective function
-    update_block1 : func
-        e-step function
-    update_block2 : func
-        m-step function
-    tol : float in R+, default 1e-10
-        minimum objective increment
-
-    Returns
-    -------
-    tuple
-        (block1 estimates, block 2 estimates)
+    :param niter: maximum number of iterations
+    :param data: observed quantities
+    :param priors: prior hyperparameters for block2
+    :param init: initial block1 variable values
+    :param eval_obj: objective function
+    :param update_block1: e-step function
+    :param update_block2: m-step function
+    :param tol: minimum objective increment
+    :returns: block1 estimates, block 2 estimates
     """
 
+    # initialize
     block1, block2 = init, None
     obj = [-np.inf]
     
@@ -45,34 +41,27 @@ def em(niter, data, priors, init, eval_obj, update_block1, update_block2, tol=1e
         if obj[t + 1] - obj[t] < tol:
             break
 
-    return (block1, block2)
+    return block1, block2
 
 
-def gibbs(ndraws, data, priors, init, sample_block1, sample_block2):
+def gibbs(ndraws: int,
+          data: tuple,
+          priors: tuple,
+          init: tuple,
+          sample_block1: Callable,
+          sample_block2: Callable) -> (tuple, tuple):
     """Sample from the posterior distribution given data and hyperparameters.
 
-    parameters
-    ----------
-    ndraws : int in N+
-        number of draws to be sampled
-    data : tuple
-        observed quantities
-    priors : tuple
-        prior hyperparameters for block2
-    init : tuple
-        initial block1 and block2 values
-    sample_block1 : func
-        block1 given block2 sampling function
-    sample_block2 : func
-        block2 given block1 sampling function
-
-    Returns
-    -------
-    tuple
-        (block1 draws, block2 draws)
+    :param ndraws: number of draws to be sampled
+    :param data: observed quantities
+    :param priors: prior hyperparameters for block2
+    :param init: initial block1 and block2 values
+    :param sample_block1: block1 given block2 sampling function
+    :param sample_block2: block2 given block1 sampling function
+    :returns: block1 draws, block2 draws
     """
 
-    # init
+    # initialize
     block1_init, block2_init = init
     block1 = [[x] for x in block1_init]
     block2 = [[x] for x in block2_init]
@@ -87,4 +76,4 @@ def gibbs(ndraws, data, priors, init, sample_block1, sample_block2):
         for x, y in zip(block1, sample_block1(*data, *[z[-1] for z in block2])):
             x.append(y)
         
-    return ([np.array(x) for x in block1], [np.array(x) for x in block2])
+    return tuple([np.array(x) for x in block1]), tuple([np.array(x) for x in block2])
