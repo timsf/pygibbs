@@ -58,35 +58,25 @@ class DensityTests(unittest.TestCase):
     def setUp(self, nobs=3, nvar=2):
 
         self.x = np.random.standard_normal((nobs, nvar))
-        self.mu = np.random.standard_normal(nvar)
+        self.mu = np.random.standard_normal((nobs, nvar))
         self.nu = np.random.standard_normal(1) ** 2
         self.sig = invwishart(nvar, np.identity(nvar)).rvs(1)
         self.tau = invwishart(nobs, np.identity(nobs)).rvs(1)
 
-    def test_root(self):
+    def test_norm_root(self):
 
         np.testing.assert_allclose(densities.eval_norm(self.x, self.mu, np.diag(self.sig)),
                                    norm(self.mu, np.sqrt(np.diag(self.sig))).logpdf(self.x))
 
     def test_mvnorm_decomp(self):
 
-        np.testing.assert_allclose(densities.eval_mvnorm(self.x, self.mu, self.sig),
-                                   densities.eval_norm(self.x, self.mu, np.diag(self.sig)).sum(1))
+        np.testing.assert_allclose(densities.eval_mvnorm(self.x, self.mu[0], np.diag(np.diag(self.sig))),
+                                   densities.eval_norm(self.x, self.mu[0], np.diag(self.sig)).sum(1))
 
     def test_matnorm_decomp(self):
 
-        np.testing.assert_allclose(densities.eval_matnorm(self.x, self.mu.reshape(self.x.shape), self.tau, self.sig),
-                                   densities.eval_mvnorm(self.x.T, self.mu, self.tau).sum(0))
-
-    def test_mvt_decomp(self):
-
-        np.testing.assert_allclose(densities.eval_mvt(self.x[:,0], self.mu[0], np.diag(self.sig[0, 0]), self.nu),
-                                   densities.eval_t(self.x[:,0], self.mu[0], self.sig[0, 0], self.nu).sum(1))
-
-    def test_matt_decomp(self):
-
-        np.testing.assert_allclose(densities.eval_matt(self.x, self.mu[:, np.newaxis], self.tau, self.sig, self.nu),
-                                   densities.eval_mvt(self.x.T, self.mu, self.sig, self.nu))
+        np.testing.assert_allclose(densities.eval_matnorm(self.x, self.mu, self.tau, np.identity(self.sig.shape[0])),
+                                   densities.eval_mvnorm(self.x.T, self.mu.T, self.tau).sum(0))
 
     def test_t_lim(self, lim=1e10, rtol=1e-4):
 
@@ -102,8 +92,8 @@ class DensityTests(unittest.TestCase):
 
     def test_matt_lim(self, lim=1e10, rtol=1e-4):
 
-        np.testing.assert_allclose(densities.eval_matnorm(self.x, self.mu, self.sig, self.tau),
-                                   densities.eval_matt(self.x, self.mu, self.sig, self.tau, lim),
+        np.testing.assert_allclose(densities.eval_matnorm(self.x, self.mu, self.tau, self.sig),
+                                   densities.eval_matt(self.x, self.mu, self.tau, self.sig, lim),
                                    rtol)
 
 

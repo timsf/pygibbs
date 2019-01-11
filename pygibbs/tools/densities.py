@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.special import gammaln, multigammaln
 
-from tools.linalg import eval_detquad, eval_double_detquad
+from pygibbs.tools.linalg import eval_detquad, eval_double_detquad
 
 
 def eval_norm(x: np.ndarray, mu: np.ndarray, sig: np.ndarray) -> np.ndarray:
@@ -11,6 +11,15 @@ def eval_norm(x: np.ndarray, mu: np.ndarray, sig: np.ndarray) -> np.ndarray:
     :param mu: mean vector
     :param sig: variance vector
     :returns: log density for each independent element of x
+
+    >>> np.random.seed(666)
+    >>> mu = np.random.standard_normal(2)
+    >>> sig = np.random.standard_normal(2) ** 2
+    >>> x = np.random.standard_normal((3, 2))
+    >>> eval_norm(x, mu, sig)
+    array([[-1.78642742, -1.03381855],
+           [-1.314294  , -2.05003107],
+           [-1.09114376, -1.79396696]])
     """
 
     d = (x - mu) ** 2 / sig
@@ -27,6 +36,13 @@ def eval_mvnorm(x: np.ndarray, mu: np.ndarray, sig: np.ndarray) -> np.ndarray:
     :param mu: mean vector
     :param sig: covariance matrix. if 1-dimensional, assume diagonal matrix
     :returns: log density for each row of x
+
+    >>> np.random.seed(666)
+    >>> mu = np.random.standard_normal(2)
+    >>> sig = np.diag(np.random.standard_normal(2) ** 2)
+    >>> x = np.random.standard_normal((3, 2))
+    >>> eval_mvnorm(x, mu, sig)
+    array([-2.82024596, -3.36432507, -2.88511072])
     """
 
     nvar = x.shape[1]
@@ -45,6 +61,14 @@ def eval_matnorm(x: np.ndarray, mu: np.ndarray, sig: np.ndarray, tau: np.ndarray
     :param sig: row covariance matrix. if 1-dimensional, assume diagonal matrix
     :param tau: column covariance matrix. if 1-dimensional, assume diagonal matrix
     :returns: log density at x
+
+    >>> np.random.seed(666)
+    >>> mu = np.random.standard_normal((3, 2))
+    >>> tau = np.diag(np.random.standard_normal(3) ** 2)
+    >>> sig = np.diag(np.random.standard_normal(2) ** 2)
+    >>> x = np.random.standard_normal((3, 2))
+    >>> eval_matnorm(x, mu, tau, sig)
+    -7806.272568943354
     """
 
     rows, cols = x.shape
@@ -63,6 +87,14 @@ def eval_lm(y: np.ndarray, x: np.ndarray, bet: np.ndarray, sig: np.ndarray) -> n
     :param bet: coefficient matrix
     :param sig: covariance matrix. if 1-dimensional, assume diagonal matrix
     :returns: log density
+
+    >>> np.random.seed(666)
+    >>> bet = np.random.standard_normal((2, 3))
+    >>> sig = np.random.standard_normal(2) ** 2
+    >>> x = np.random.standard_normal((3, 2))
+    >>> y = bet @ x + np.random.standard_normal((2, 2))
+    >>> eval_lm(y, x, bet, sig)
+    array([-2.80104095, -5.57801269])
     """
 
     return np.nansum(eval_norm(y.T, (bet @ x).T, np.sqrt(sig)), 1)
@@ -76,6 +108,14 @@ def eval_mvlm(y: np.ndarray, x: np.ndarray, bet: np.ndarray, sig: np.ndarray) ->
     :param bet: coefficient matrix
     :param sig: covariance matrix. if 1-dimensional, assume diagonal matrix
     :returns: log density
+
+    >>> np.random.seed(666)
+    >>> bet = np.random.standard_normal((2, 3))
+    >>> sig = np.diag(np.random.standard_normal(2) ** 2)
+    >>> x = np.random.standard_normal((3, 2))
+    >>> y = bet @ x + np.random.standard_normal((2, 2))
+    >>> eval_lm(y, x, bet, sig)
+    array([-1.28298724, -1.06563082])
     """
 
     return eval_mvnorm(y.T, (bet @ x).T, sig)
@@ -89,6 +129,16 @@ def eval_t(x: np.ndarray, mu: np.ndarray, sig: np.ndarray, nu: np.ndarray) -> np
     :param sig: scale vector
     :param nu: degrees of freedom vector
     :returns: log density for each independent element of x
+
+    >>> np.random.seed(666)
+    >>> mu = np.random.standard_normal(2)
+    >>> sig = np.random.standard_normal(2) ** 2
+    >>> nu = np.random.standard_normal(2) ** 2
+    >>> x = np.random.standard_normal((3, 2))
+    >>> eval_t(x, mu, sig, nu)
+    array([[-2.19506649, -5.51275428],
+           [-1.65112507, -5.39490678],
+           [-1.66824503, -5.50369595]])
     """
 
     d = (x - mu) ** 2 / sig
@@ -106,6 +156,14 @@ def eval_mvt(x: np.ndarray, mu: np.ndarray, sig: np.ndarray, nu: float) -> np.nd
     :param sig: covariance matrix. if 1-dimensional, assume diagonal matrix
     :param nu: degrees of freedom
     :returns: log density for each row of x
+
+    >>> np.random.seed(666)
+    >>> mu = np.random.standard_normal(2)
+    >>> sig = np.diag(np.random.standard_normal(2) ** 2)
+    >>> nu = np.random.standard_normal(1) ** 2
+    >>> x = np.random.standard_normal((3, 2))
+    >>> eval_mvt(x, mu, sig, nu)
+    array([-3.43197508, -4.32754577, -4.13695343])
     """
 
     nvar = x.shape[1]
@@ -125,6 +183,15 @@ def eval_matt(x: np.ndarray, mu: np.ndarray, sig: np.ndarray, tau: np.ndarray, n
     :param tau: column covariance matrix. if 1-dimensional, assume diagonal matrix
     :param nu: degrees of freedom
     :returns: log density at x
+
+    >>> np.random.seed(666)
+    >>> mu = np.random.standard_normal((3, 2))
+    >>> tau = np.diag(np.random.standard_normal(3) ** 2)
+    >>> sig = np.diag(np.random.standard_normal(2) ** 2)
+    >>> nu = np.random.standard_normal(1) ** 2
+    >>> x = np.random.standard_normal((3, 2))
+    >>> eval_matt(x, mu, tau, sig, nu)
+    array([-20.52753181])
     """
 
     rows, cols = x.shape
@@ -140,3 +207,41 @@ def eval_matt(x: np.ndarray, mu: np.ndarray, sig: np.ndarray, tau: np.ndarray, n
         - (rows * cols * (np.log(nu) + 2 * np.log(np.pi)) + cols * logdet_sig + rows * logdet_tau) / 2
 
     return cons + kern
+
+
+def eval_poisson(x: np.ndarray, lam: np.ndarray) -> np.ndarray:
+    """Evaluate the log density given parameters
+
+    :param x: data matrix
+    :param lam: rate vector
+    :returns: log density at x
+
+    >>> np.random.seed(666)
+    >>> lam = np.random.standard_normal(2) ** 2
+    >>> x = np.random.poisson(lam, (3, 2))
+    >>> eval_poisson(x, lam)
+    array([[-1.06599903, -1.69844737],
+           [-0.679286  , -0.23036736],
+           [-0.679286  , -0.23036736]])
+    """
+
+    return x * np.log(lam) - lam - gammaln(x + 1)
+
+
+def eval_multinomial(x: np.ndarray, pi: np.ndarray) -> np.ndarray:
+    """Evaluate the log density given parameters
+
+    :param x: data matrix
+    :param pi: probability vector
+    :returns: log density at x
+
+    >>> np.random.seed(666)
+    >>> pi = np.random.dirichlet(np.ones(3))
+    >>> x = np.random.multinomial(3, pi, 2)
+    >>> eval_multinomial(x, pi)
+    array([-2.71638384])
+    """
+
+    x = np.sum(x, 0)[np.newaxis]
+
+    return np.sum(x * np.log(pi) - gammaln(x + 1), 1) + gammaln(np.sum(x, 1) + 1)

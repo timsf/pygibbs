@@ -19,6 +19,12 @@ def summ_sample(x, quants, name="param"):
     -------
     pd.DataFrame
         summary
+
+    >>> np.random.seed(666)
+    >>> summ_sample(np.random.standard_normal((100, 2)), np.array([10, 50, 90]), 'x')
+               Q10       Q50       Q90
+    x[1] -1.278403 -0.043071  1.135279
+    x[2] -1.017850  0.091727  1.379015
     """
 
     rows = [
@@ -45,6 +51,12 @@ def diag_sample(x, name="param"):
     -------
     pd.DataFrame
         summary
+
+    >>> np.random.seed(666)
+    >>> diag_sample(np.random.standard_normal((100, 2)), 'x')
+            StdErr         ESS
+    x[1]  0.102626  100.000000
+    x[2]  0.110409   77.125764
     """
 
     rows = [
