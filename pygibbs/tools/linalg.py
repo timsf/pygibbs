@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import numpy as np
-from scipy.linalg import cho_factor, solve_triangular
+from scipy.linalg import cho_factor, solve_triangular, solve
 
 
 def eval_quad(x: np.ndarray, s: np.ndarray) -> np.ndarray:
@@ -62,6 +62,26 @@ def logdet_pd(s: np.ndarray) -> float:
     r, _ = cho_factor(s)
 
     return float(np.sum(np.log(np.diag(r))) * 2)
+
+
+def precond_solve_pd(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Solve the linear system a @ x = b in a more stable way by preconditioning a.
+
+    :param a:
+    :param b:
+    :returns: solution of a @ x = b
+
+    >>> np.random.seed(666)
+    >>> a = np.diag(np.random.standard_normal(2) ** 2)
+    >>> b = np.random.standard_normal(2) ** 2
+    >>> x = precond_solve_pd(a, b)
+    >>> a @ x, b
+    (array([1.37702718, 0.82636839]), array([1.37702718, 0.82636839]))
+    """
+
+    precond = 1 / np.sqrt(np.diag(a))
+
+    return solve(((a * precond).T * precond).T, b * precond, sym_pos=True) * precond
 
 
 def eval_detquad(x: np.ndarray, s: np.ndarray) -> Tuple[np.ndarray, float]:

@@ -32,6 +32,13 @@ class LinalgTests(unittest.TestCase):
 
         np.testing.assert_allclose(linalg.logdet_pd(s), np.prod(np.linalg.slogdet(s)))
 
+    def test_precond_solve(self):
+
+        s = invwishart(2, np.diag(np.ones(2))).rvs(1)
+        x = np.random.standard_normal(2)
+
+        np.testing.assert_allclose(linalg.precond_solve_pd(s, x), np.linalg.solve(s, x))
+
     def test_detquad(self):
 
         s = invwishart(2, np.diag(np.ones(2))).rvs(1)

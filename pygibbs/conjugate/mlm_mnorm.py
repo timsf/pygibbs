@@ -13,8 +13,9 @@ The posterior distribution over (bet,) is normal:
 from typing import Tuple
 
 import numpy as np
+from scipy.linalg import solve_triangular
 
-from pygibbs.tools.densities import eval_mvlm as eval_loglik, eval_mvnorm
+from pygibbs.tools.densities import eval_mvnorm
 
 
 Data = Tuple[np.ndarray, np.ndarray, np.ndarray]
@@ -28,36 +29,25 @@ def update(y: np.ndarray, x: np.ndarray, sig: np.ndarray, m: np.ndarray, s: np.n
     :param y: [nres, nobs]
     :param x: [nvar, nobs]
     :param sig: (PD)[nobs, nobs]
-    :param m: [nvar]
+    :param m: [nres, nvar]
     :param s: (PD)[nvar, nvar]
-    :param w: observation weights
+    :param w: (>0)[nobs]
     :returns: posterior hyperparameters
     """
 
     if w is not None:
         x = x @ np.diag(w)
-    mx, sx = marginalize(x, sig, m, s)
+        y = y @ np.diag(w)
+    xs = x.T @ s
 
-    s0x = s @ x
-    sxi = np.linalg.inv(sx)
+    l = np.linalg.cholesky(xs @ x + sig)
+    a = solve_triangular(l, xs, lower=True)
+    b = solve_triangular(l, (y - m @ x).T, lower=True)
 
-    mN = m + (s0x @ sxi @ (y - mx).T).T
-    sN = s - (s0x @ sxi @ s0x.T)
+    mN = m + b.T @ a
+    sN = s - a.T @ a
 
     return np.where(np.isnan(mN), m, mN), sN
-
-
-def marginalize(x: np.ndarray, sig: np.ndarray, m: np.ndarray, s: np.ndarray) -> (np.ndarray, np.ndarray):
-    """Compute the parameters of the marginal likelihood
-
-    :param x:
-    :param sig:
-    :param m: [nvar]
-    :param s: (PD)[nvar, nvar]
-    :returns: parameters of marginal likelihood
-    """
-
-    return m @ x, x.T @ s @ x + sig
 
 
 def sample_param(ndraws: int, m: np.ndarray, s: np.ndarray) -> Param:
@@ -81,7 +71,7 @@ def sample_data(ndraws: int, x: np.ndarray, sig: np.ndarray, m: np.ndarray, s: n
     :param ndraws: (>0) number of samples to be drawn
     :param x: [nvar, nobs]
     :param sig: (PD)[nobs, nobs]
-    :param m: [nvar]
+    :param m: [nres, nvar]
     :param s: (PD)[nvar, nvar]
     :returns: samples from the data distribution
     """
@@ -100,24 +90,37 @@ def eval_logmargin(y: np.ndarray, x: np.ndarray, sig: np.ndarray, m: np.ndarray,
     :param y: [nres, nobs]
     :param x: [nvar, nobs]
     :param sig: (PD)[nobs, nobs]
-    :param m: [nvar]
+    :param m: [nres, nvar]
     :param s: (PD)[nvar, nvar]
-    :param w: observation weights
+    :param w: (>0)[nobs]
     :returns: log marginal likelihood
     """
 
     if w is not None:
         x = x @ np.diag(w)
         y = y @ np.diag(w)
-    mx, sx = marginalize(x, sig, m, s)
+    mx, sx = m @ x, x.T @ s @ x + sig
 
-    return np.nansum(eval_mvnorm(y - mx, np.zeros(y.shape[1]), sx))
+    return float(np.nansum(eval_mvnorm(y - mx, np.zeros(y.shape[1]), sx)))
+
+
+def eval_loglik(y: np.ndarray, x: np.ndarray, sig: np.ndarray, bet: np.ndarray) -> np.ndarray:
+    """Evaluate the log density given parameters
+
+    :param y: [nres, nobs]
+    :param x: [nvar, nobs]
+    :param sig: (PD)[nobs, nobs]
+    :param bet: [nres, nvar]
+    :returns: log likelihood
+    """
+
+    return eval_mvnorm(y, bet @ x, sig)
 
 
 def get_ev(m: np.ndarray, s: np.ndarray) -> Param:
     """Evaluate the expectation of parameters given hyperparameters.
 
-    :param m: [nvar]
+    :param m: [nres, nvar]
     :param s: (PD)[nvar, nvar]
     :returns: parameter expectations
     """
@@ -128,7 +131,7 @@ def get_ev(m: np.ndarray, s: np.ndarray) -> Param:
 def get_mode(m: np.ndarray, s: np.ndarray) -> Param:
     """Evaluate the mode of parameters given hyperparameters.
 
-    :param m: [nvar]
+    :param m: [nres, nvar]
     :param s: (PD)[nvar, nvar]
     :returns: parameter modes
     """
@@ -136,7 +139,7 @@ def get_mode(m: np.ndarray, s: np.ndarray) -> Param:
     return m,
 
 
-def _generate_fixture(nres: int = 3, nobs: int = 2, nvar: int = 1, seed: int = 666) -> (Data, Param, Hyper):
+def _generate_fixture(nres: int = 4, nobs: int = 3, nvar: int = 2, seed: int = 666) -> (Data, Param, Hyper):
     """Generate a set of input data.
 
     :param nres: (>0)
@@ -162,8 +165,3 @@ def _generate_fixture(nres: int = 3, nobs: int = 2, nvar: int = 1, seed: int = 6
     s = np.identity(nvar)
 
     return (y, x, sig), (bet,), (m, s)
-
-
-if __name__ == '__main__':
-    import doctest
-    doctest.testmod()

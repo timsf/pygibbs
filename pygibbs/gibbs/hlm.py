@@ -19,7 +19,6 @@ import numpy as np
 from pygibbs.tools.gibbs import em, gibbs
 from pygibbs.conjugate import norm_chisq as nc, mnorm_wishart as mnw, mnorm_mnorm_wishart as mnmnw, \
     lm_mnorm_chisq as lmnc, mlm_mnorm as mlmn
-from pygibbs.tools.densities import eval_lm
 
 
 Data = Tuple[np.ndarray, np.ndarray]
@@ -62,6 +61,105 @@ def sample(ndraws: int, y: np.ndarray, x: np.ndarray, load: HyperLoad, emit: Hyp
     init_eta, init_theta = estimate(100, y, x, load, emit)
 
     return gibbs(ndraws, (y, x), (load, emit), init_eta, init_theta, sample_eta, sample_theta)
+
+
+def estimate_eta(data: Data, theta: Theta) -> Eta:
+    """Compute the expectation of eta given theta and data.
+
+    :param data:
+    :param theta:
+    :returns: eta expected values given theta and data
+    """
+
+    mu, sig, tau = theta
+    hyperN, rho = update_eta(*data, *theta)
+    bet, = mlmn.get_ev(*hyperN)
+    gam = bet - mu
+
+    return bet, gam, rho
+
+
+def sample_eta(data: Data, theta: Theta) -> Eta:
+    """Sample from eta given theta and data.
+
+    :param data:
+    :param theta:
+    :returns: eta sample given theta and data
+    """
+
+    mu, sig, tau = theta
+    hyperN, rho = update_eta(*data, *theta)
+    bet, = mlmn.sample_param(1, *hyperN)[0]
+    gam = bet - mu
+
+    return bet, gam, rho
+
+
+def estimate_theta(data: Data, eta: Eta, hyper: Hyper) -> Theta:
+    """Compute the mode of theta given eta and data.
+
+    :param data:
+    :param eta:
+    :param hyper:
+    :returns: theta modes given eta and data
+    """
+
+    rho = eta[2]
+    if rho[0] < rho[1]:
+        loadN, emitN = update_theta_cp(*data, *eta, *hyper)
+        mu, sig = mnmnw.get_mode(*loadN)
+        tau, = nc.get_mode(*emitN)
+    else:
+        loadN, emitN = update_theta_ncp(*data, *eta, *hyper)
+        sig, = mnw.get_mode(*loadN)
+        mu, tau = [x[0] for x in lmnc.get_mode(*emitN)]
+
+    return mu, sig, tau
+
+
+def sample_theta(data: Data, eta: Eta, hyper: Hyper) -> Theta:
+    """Sample from theta given eta and data.
+
+    :param data:
+    :param eta:
+    :param hyper:
+    :returns: theta sample given eta and data
+    """
+
+    rho = eta[2]
+    if rho[0] < rho[1]:
+        loadN, emitN = update_theta_cp(*data, *eta, *hyper)
+        mu, sig = mnmnw.sample_param(1, *loadN)
+        tau, = nc.sample_param(1, *emitN)
+    else:
+        loadN, emitN = update_theta_ncp(*data, *eta, *hyper)
+        sig, = mnw.sample_param(1, *loadN)
+        mu, tau = [x[0] for x in lmnc.sample_param(1, *emitN)]
+
+    return mu[0], sig[0], tau[0]
+
+
+def eval_loglik(data: Data, eta: Eta, theta: Theta) -> np.ndarray:
+    """Evaluate the likelihood given both blocks.
+
+    :param data:
+    :param eta:
+    :param theta:
+    :returns: likelihood given both blocks
+    """
+
+    return np.sum(nc.eval_loglik(data[0], eta[0] @ data[1], np.array(theta[2])), 1)
+
+
+def eval_logobserved(data: Data, theta: Theta) -> float:
+    """Evaluate the likelihood given theta, integrating out eta variables.
+
+    :param data:
+    :param theta:
+    :returns: log observed likelihood
+    """
+
+    return mlmn.eval_logmargin(*reshape(*data, *theta))
 
 
 def update_eta(y: np.ndarray, x: np.ndarray, mu: np.ndarray, sig: np.ndarray, tau: float) -> Tuple[mlmn.Hyper, np.ndarray]:
@@ -152,106 +250,7 @@ def reshape(y: np.ndarray, x: np.ndarray, mu: np.ndarray, sig: np.ndarray, tau: 
     return y, x, tau * np.identity(y.shape[1]), mu, sig
 
 
-def estimate_eta(data: Data, theta: Theta) -> Eta:
-    """Compute the expectation of eta given theta and data.
-
-    :param data:
-    :param theta:
-    :returns: eta expected values given theta and data
-    """
-
-    mu, sig, tau = theta
-    hyperN, rho = update_eta(*data, *theta)
-    bet, = mlmn.get_ev(*hyperN)
-    gam = bet - mu
-
-    return bet, gam, rho
-
-
-def sample_eta(data: Data, theta: Theta) -> Eta:
-    """Sample from eta given theta and data.
-
-    :param data:
-    :param theta:
-    :returns: eta sample given theta and data
-    """
-
-    mu, sig, tau = theta
-    hyperN, rho = update_eta(*data, *theta)
-    bet, = mlmn.sample_param(1, *hyperN)[0]
-    gam = bet - mu
-
-    return bet, gam, rho
-
-
-def estimate_theta(data: Data, eta: Eta, hyper: Hyper) -> Theta:
-    """Compute the mode of theta given eta and data.
-
-    :param data:
-    :param eta:
-    :param hyper:
-    :returns: theta modes given eta and data
-    """
-
-    rho = eta[2]
-    if rho[0] < rho[1]:
-        loadN, emitN = update_theta_cp(*data, *eta, *hyper)
-        mu, sig = mnmnw.get_mode(*loadN)
-        tau, = nc.get_mode(*emitN)
-    else:
-        loadN, emitN = update_theta_ncp(*data, *eta, *hyper)
-        sig, = mnw.get_mode(*loadN)
-        mu, tau = [x[0] for x in lmnc.get_mode(*emitN)]
-
-    return mu, sig, tau
-
-
-def sample_theta(data: Data, eta: Eta, hyper: Hyper) -> Theta:
-    """Sample from theta given eta and data.
-
-    :param data:
-    :param eta:
-    :param hyper:
-    :returns: theta sample given eta and data
-    """
-
-    rho = eta[2]
-    if rho[0] < rho[1]:
-        loadN, emitN = update_theta_cp(*data, *eta, *hyper)
-        mu, sig = mnmnw.sample_param(1, *loadN)
-        tau, = nc.sample_param(1, *emitN)
-    else:
-        loadN, emitN = update_theta_ncp(*data, *eta, *hyper)
-        sig, = mnw.sample_param(1, *loadN)
-        mu, tau = [x[0] for x in lmnc.sample_param(1, *emitN)]
-
-    return mu[0], sig[0], tau[0]
-
-
-def eval_loglik(data: Data, eta: Eta, theta: Theta) -> np.ndarray:
-    """Evaluate the likelihood given both blocks.
-
-    :param data:
-    :param eta:
-    :param theta:
-    :returns: likelihood given both blocks
-    """
-
-    return eval_lm(*data, *eta[0], np.array(theta[2]))
-
-
-def eval_logobserved(data: Data, theta: Theta) -> float:
-    """Evaluate the likelihood given theta, integrating out eta variables.
-
-    :param data:
-    :param theta:
-    :returns: log observed likelihood
-    """
-
-    return mlmn.eval_logmargin(*reshape(*data, *theta))
-
-
-def _generate_fixture(nres: int, nobs: int, nvar: int, seed: int = 666) -> (Data, Param, Hyper):
+def _generate_fixture(nres: int = 3, nobs: int = 2, nvar: int = 1, seed: int = 666) -> (Data, Param, Hyper):
     """Generate a set of input data.
 
     :param nres: (>0)

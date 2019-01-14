@@ -125,8 +125,3 @@ def _generate_fixture(nobs: int = 2, nvar: int = 3, seed: int = 666) -> (Data, P
     a = np.ones(nvar)
 
     return (x,), (pi,), (a,)
-
-
-if __name__ == '__main__':
-    import doctest
-    doctest.testmod()

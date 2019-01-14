@@ -79,48 +79,6 @@ def eval_matnorm(x: np.ndarray, mu: np.ndarray, sig: np.ndarray, tau: np.ndarray
     return cons + kern
 
 
-def eval_lm(y: np.ndarray, x: np.ndarray, bet: np.ndarray, sig: np.ndarray) -> np.ndarray:
-    """Evaluate the log density given parameters
-
-    :param y: response matrix
-    :param x: covariate matrix
-    :param bet: coefficient matrix
-    :param sig: covariance matrix. if 1-dimensional, assume diagonal matrix
-    :returns: log density
-
-    >>> np.random.seed(666)
-    >>> bet = np.random.standard_normal((2, 3))
-    >>> sig = np.random.standard_normal(2) ** 2
-    >>> x = np.random.standard_normal((3, 2))
-    >>> y = bet @ x + np.random.standard_normal((2, 2))
-    >>> eval_lm(y, x, bet, sig)
-    array([-2.80104095, -5.57801269])
-    """
-
-    return np.nansum(eval_norm(y.T, (bet @ x).T, np.sqrt(sig)), 1)
-
-
-def eval_mvlm(y: np.ndarray, x: np.ndarray, bet: np.ndarray, sig: np.ndarray) -> np.ndarray:
-    """Evaluate the log density given parameters
-
-    :param y: response matrix
-    :param x: covariate matrix
-    :param bet: coefficient matrix
-    :param sig: covariance matrix. if 1-dimensional, assume diagonal matrix
-    :returns: log density
-
-    >>> np.random.seed(666)
-    >>> bet = np.random.standard_normal((2, 3))
-    >>> sig = np.diag(np.random.standard_normal(2) ** 2)
-    >>> x = np.random.standard_normal((3, 2))
-    >>> y = bet @ x + np.random.standard_normal((2, 2))
-    >>> eval_lm(y, x, bet, sig)
-    array([-1.28298724, -1.06563082])
-    """
-
-    return eval_mvnorm(y.T, (bet @ x).T, sig)
-
-
 def eval_t(x: np.ndarray, mu: np.ndarray, sig: np.ndarray, nu: np.ndarray) -> np.ndarray:
     """Evaluate the log density given parameters
 
