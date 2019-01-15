@@ -3,7 +3,8 @@ from abc import ABC
 
 import numpy as np
 
-from pygibbs.conjugate import norm_chisq, mlm_mnorm, mlm_mnorm_wishart, mnorm_wishart, mnorm_mnorm_wishart, lm_mnorm_chisq, poisson_gamma, multinomial_dirichlet
+from pygibbs.conjugate import lm_mnorm_chisq, mlm_mnorm, mlm_mnorm_wishart, mnorm_wishart, mnorm_mnorm_wishart, \
+    multinomial_dirichlet, norm_chisq, norm_norm_chisq, poisson_gamma
 
 
 class ConsistencyTest(ABC):
@@ -71,6 +72,11 @@ class ConsistencyTest_multinomial_dirichlet(ConsistencyTest, unittest.TestCase):
 class ConsistencyTest_norm_chisq(ConsistencyTest, unittest.TestCase):
     def setUp(self):
         super(self.__class__, self).setUp(norm_chisq)
+
+
+class ConsistencyTest_norm_norm_chisq(ConsistencyTest, unittest.TestCase):
+    def setUp(self):
+        super(self.__class__, self).setUp(norm_norm_chisq)
 
 
 class ConsistencyTest_poisson_gamma(ConsistencyTest, unittest.TestCase):

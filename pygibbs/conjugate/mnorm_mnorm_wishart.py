@@ -8,8 +8,8 @@ The prior distribution over (mu, sig) is normal-inv-wishart:
     sig|(v, s) ~ Inv-Wishart(v, s)
 
 The posterior distribution over (mu, sig) is normal-inv-wishart:
-    mu|(x, sig, mN, lN) ~ Mv-Normal(mN, sig / lN)
-    sig|(x, vN, sN) ~ Inv-Wishart(vN, sN)
+    mu|(x, sig, m, l) ~ Mv-Normal(mN, sig / lN)
+    sig|(x, v, s) ~ Inv-Wishart(vN, sN)
 """
 
 from typing import Tuple

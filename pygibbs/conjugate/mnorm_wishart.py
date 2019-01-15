@@ -7,7 +7,7 @@ The prior distribution over (sig,) is inv-wishart:
     sig|(v, s) ~ Inv-Wishart(v, s)
 
 The posterior distribution over (sig,) is inv-wishart:
-    sig|(x, vN, sN) ~ Inv-Wishart(vN, sN)
+    sig|(x, mu, v, s) ~ Inv-Wishart(vN, sN)
 """
 
 from typing import Tuple

@@ -95,7 +95,7 @@ def sample_data(ndraws: int, x: np.ndarray, m: np.ndarray, l: np.ndarray, v: flo
     z = np.random.standard_normal((ndraws, nres, nobs))
     bet, sig = sample_param(ndraws, m, l, v, s)
 
-    y = np.array([bet_i @ x + np.linalg.cholesky(sig_i) @ z_i for z_i, bet_i, sig_i in zip(z, bet, sig)])
+    y = bet @ x + np.array([np.linalg.cholesky(sig_i) @ z_i for z_i, sig_i in zip(z, sig)])
 
     return y
 

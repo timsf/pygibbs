@@ -38,8 +38,8 @@ def update(y: np.ndarray, x: np.ndarray, sig: np.ndarray, m: np.ndarray, s: np.n
     if w is not None:
         x = x @ np.diag(w)
         y = y @ np.diag(w)
-    xs = x.T @ s
 
+    xs = x.T @ s
     l = np.linalg.cholesky(xs @ x + sig)
     a = solve_triangular(l, xs, lower=True)
     b = solve_triangular(l, (y - m @ x).T, lower=True)
@@ -54,13 +54,15 @@ def sample_param(ndraws: int, m: np.ndarray, s: np.ndarray) -> Param:
     """Draw samples from the parameter distribution given hyperparameters.
 
     :param ndraws: (>0) number of samples to be drawn
-    :param m: [nvar]
+    :param m: [nres, nvar]
     :param s: (PD)[nvar, nvar]
     :returns: samples from the parameter distribution
     """
 
     nres, nvar = m.shape
-    bet = m + np.random.multivariate_normal(np.zeros(nvar), s, (ndraws, nres))
+    z = np.random.standard_normal((ndraws, *m.shape))
+
+    bet = m + np.array([z_i @ np.linalg.cholesky(s).T for z_i in z])
 
     return bet,
 
@@ -77,8 +79,9 @@ def sample_data(ndraws: int, x: np.ndarray, sig: np.ndarray, m: np.ndarray, s: n
     """
 
     nres, nobs = m.shape[0], x.shape[1]
+    z = np.random.standard_normal((ndraws, nres, nobs))
     bet, = sample_param(ndraws, m, s)
-    y = bet @ x + np.random.multivariate_normal(np.zeros(nobs), sig, (ndraws, nres))
+    y = bet @ x + np.array([np.linalg.cholesky(sig) @ z_i for z_i in z])
 
     return y
 

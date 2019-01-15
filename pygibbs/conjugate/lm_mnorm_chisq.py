@@ -73,8 +73,8 @@ def sample_param(ndraws: int, m: np.ndarray, l: np.ndarray, v: np.ndarray, s: np
     sig = s / np.random.chisquare(v, (ndraws, nres))
 
     sqrt_li = solve_triangular(np.linalg.cholesky(l), np.identity(nvar), lower=True)
-    sqrt_sig2 = np.sqrt(sig)
-    bet = m + np.array([sqrt_sig2_i[:, np.newaxis] * z_i @ sqrt_li for z_i, sqrt_sig2_i in zip(z, sqrt_sig2)])
+    sqrt_sig = np.sqrt(sig)
+    bet = m + np.array([sqrt_sig_i[:, np.newaxis] * z_i @ sqrt_li for z_i, sqrt_sig_i in zip(z, sqrt_sig)])
 
     return bet, sig
 
@@ -96,7 +96,7 @@ def sample_data(ndraws: int, x: np.ndarray, m: np.ndarray, l: np.ndarray, v: np.
     bet, sig = sample_param(ndraws, m, l, v, s)
 
     sqrt_sig = np.sqrt(sig)
-    y = np.array([bet_i @ x + sqrt_sig_i[:, np.newaxis] * z_i for z_i, bet_i, sqrt_sig_i in zip(z, bet, sqrt_sig)])
+    y = bet @ x + np.array([sqrt_sig_i[:, np.newaxis] * z_i for z_i, sqrt_sig_i in zip(z, sqrt_sig)])
 
     return y
 
