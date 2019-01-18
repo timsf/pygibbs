@@ -16,6 +16,7 @@ import numpy as np
 from scipy.linalg import solve_triangular
 
 from pygibbs.tools.densities import eval_mvnorm
+from pygibbs.tools.linalg import logdet_pd
 
 
 Data = Tuple[np.ndarray, np.ndarray, np.ndarray]
@@ -59,7 +60,6 @@ def sample_param(ndraws: int, m: np.ndarray, s: np.ndarray) -> Param:
     :returns: samples from the parameter distribution
     """
 
-    nres, nvar = m.shape
     z = np.random.standard_normal((ndraws, *m.shape))
 
     bet = m + np.array([z_i @ np.linalg.cholesky(s).T for z_i in z])
@@ -102,6 +102,7 @@ def eval_logmargin(y: np.ndarray, x: np.ndarray, sig: np.ndarray, m: np.ndarray,
     if w is not None:
         x = x @ np.diag(w)
         y = y @ np.diag(w)
+
     mx, sx = m @ x, x.T @ s @ x + sig
 
     return float(np.nansum(eval_mvnorm(y - mx, np.zeros(y.shape[1]), sx)))

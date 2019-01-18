@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 from scipy.stats import norm, invwishart
 
-from pygibbs.tools import linalg, densities
+from pygibbs.tools import linalg, densities, mctools
 
 
 class LinalgTests(unittest.TestCase):
