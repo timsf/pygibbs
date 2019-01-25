@@ -101,7 +101,7 @@ def eval_logmargin(y: np.ndarray, x: np.ndarray, m: np.ndarray, l: np.ndarray, w
         gam = bet - m
         return np.sum(eval_loglik(y, x, bet)) + (logdet_pd(l) - m.shape[0] * np.log(2 * np.pi) - gam @ l @ gam) / 2
 
-    return est_integral(1000, *update(y, x, m, l, w), log_joint)
+    return est_integral(1000, *update(y, x, m, l, w), log_joint)[0]
 
 
 def eval_loglik(y: np.ndarray, x: np.ndarray, bet: np.ndarray) -> np.ndarray:

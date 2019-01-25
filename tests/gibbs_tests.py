@@ -47,9 +47,7 @@ class ConsistencyTest(ABC):
 
 
 class ConsistencyTest_hlm(ConsistencyTest, unittest.TestCase):
-
     def setUp(self):
-
         super(ConsistencyTest_hlm, self).setUp(hlm)
 
 

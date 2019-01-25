@@ -288,8 +288,3 @@ def _generate_fixture(nres: int = 3, nobs: int = 2, nvar: int = 1, seed: int = 6
     emit = v, s
 
     return (y, x), (eta, theta), (load, emit)
-
-
-if __name__ == '__main__':
-    import doctest
-    doctest.testmod()

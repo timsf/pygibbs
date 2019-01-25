@@ -19,7 +19,7 @@ def fit_approx(init: Param,
     """Find the parameters of the Laplace approximation to log_obj.
 
     :param init: initial values
-    :param log_obj: integrand
+    :param log_obj: log integrand
     :param grad_log_obj: gradient of integrand
     :param hess_log_obj: hessian of integrand
     :returns: parameters of laplace approximation
@@ -42,14 +42,14 @@ def fit_approx(init: Param,
     return mN, lN
 
 
-def est_integral(ndraws: int, m: M, l: L, log_obj: Integrand) -> float:
+def est_integral(ndraws: int, m: M, l: L, log_obj: Integrand) -> Tuple[float, float]:
     """Use Laplace importance sampling to estimate the integral of the given objective with respect to parameters.
 
     :param ndraws: (>0) number of importance samples
     :param m: mean of laplace approximation
     :param l: precision of laplace approximation
-    :param log_obj: integrand
-    :returns: estimate of integral
+    :param log_obj: log integrand
+    :returns: estimate of integral, effective sample size
     """
 
     # preliminary computations
@@ -59,8 +59,12 @@ def est_integral(ndraws: int, m: M, l: L, log_obj: Integrand) -> float:
     z = np.random.standard_normal((ndraws, *m.shape))
     theta = m + solve_triangular(cf_l.T, z.T).T
 
-    # compute importance sampling estimate
-    nc = (m.shape[0] * np.log(2 * np.pi)) / 2 - np.log(ndraws) - np.sum(np.log(np.diag(cf_l)))
-    log_weights = np.array([log_obj(the_i) for the_i in theta]) + np.sum(z ** 2, 1) / 2
+    # compute weights and integrand values
+    log_weights = (m.shape[0] * np.log(2 * np.pi)) / 2 - np.sum(np.log(np.diag(cf_l))) + np.sum(z ** 2, 1) / 2
+    log_integrand = np.array([log_obj(the_i) for the_i in theta])
 
-    return nc + logsumexp(log_weights)
+    # finalize estimate
+    mean = logsumexp(log_weights + log_integrand) - np.log(ndraws)
+    ess = np.exp(2 * logsumexp(log_weights) - logsumexp(2 * log_weights))
+
+    return mean, ess

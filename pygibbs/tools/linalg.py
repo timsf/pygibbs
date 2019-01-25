@@ -133,4 +133,3 @@ def eval_double_detquad(x: np.ndarray, s: np.ndarray, t: np.ndarray) -> Tuple[np
     root, logdet_t = eval_detquad(root.T, t)
         
     return root, logdet_s, logdet_t
-
