@@ -69,7 +69,7 @@ def est_ess(x: np.ndarray) -> Tuple[np.ndarray, float]:
 
     >>> np.random.seed(666)
     >>> est_ess(np.random.standard_normal((1000, 2)))
-    (array([1139.62180093, 1382.01989909]), 239.879522242666)
+    (array([1139.62180093, 1382.01989909]), 239.87952224266587)
     """
 
     # set truncation point for autocorrelation computation
@@ -120,10 +120,11 @@ def est_batch_cov(x: np.ndarray, batch_size: int) -> np.ndarray:
            [-0.12105535,  0.93242508]])
     """
 
-    batch_means = est_batch_means(x - np.mean(x, 0), batch_size)
-    batch_covs = [np.outer(bm, bm) for bm in batch_means]
+    # enforce equally sized batches
+    if -int(x.shape[0] % batch_size) != 0:
+        x = x[:-int(x.shape[0] % batch_size)]
 
-    return batch_size / (len(batch_covs) - 1) * np.sum(batch_covs, 0)
+    return batch_size * np.cov(est_batch_means(x, batch_size), rowvar=False)
 
 
 def est_batch_means(x: np.ndarray, batch_size: int) -> List[np.ndarray]:

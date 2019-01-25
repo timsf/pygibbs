@@ -104,5 +104,36 @@ class DensityTests(unittest.TestCase):
                                    rtol)
 
 
+class McToolTests(unittest.TestCase):
+
+    def setUp(self, ndraws=int(1e5), ntests=int(1e2)):
+
+        coef = np.random.uniform(-0.5, 0.5)
+        self.stat_var = 1 / (1 - coef ** 2)
+        self.mc_var = self.stat_var * (2 / (1 - coef) - 1)
+        self.ess = ndraws * self.stat_var / self.mc_var
+
+        e = np.random.standard_normal((ndraws, ntests))
+        self.x = np.empty(e.shape)
+        self.x[0] = e[0]
+        for i in range(1, ndraws):
+            self.x[i] = coef * self.x[i - 1] + e[i]
+
+    def test_ess(self, rtol=1e-1, atol=1e-1):
+
+        est, _ = mctools.est_ess(self.x)
+        np.testing.assert_allclose(np.mean(est), self.ess, rtol, atol)
+
+    def test_lugsail_bias(self, rtol=1e-2, atol=1e-2):
+
+        est = np.diag(mctools.est_lugsail_cov(self.x, self.x.shape[0] ** (1 / 3)))
+        np.testing.assert_allclose(np.mean(est), self.mc_var, rtol, atol)
+
+    def test_batch_bias(self, rtol=1e-2, atol=1e-2):
+
+        est = np.diag(mctools.est_batch_cov(self.x, np.floor(self.x.shape[0] ** (1 / 3))))
+        np.testing.assert_allclose(np.mean(est), self.mc_var, rtol, atol)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -23,7 +23,7 @@ class ConsistencyTest(ABC):
 
     def test_pev(self):
 
-        for est, true in zip(self.mod.get_mode(*self.posterior), self.gt):
+        for est, true in zip(self.mod.get_ev(*self.posterior), self.gt):
             np.testing.assert_allclose(est, true, *self.tol)
 
     def test_logmargin(self, nsamples=int(1e2)):
