@@ -184,7 +184,7 @@ def _generate_fixture(nres: int = 3, nobs: int = 2, nvar: int = 1, seed: int = 6
     # set hyperparameters
     m = np.zeros((nres, nvar))
     l = np.identity(nvar)
-    v = np.ones(nres) + 2
+    v = np.ones(nres)
     s = np.ones(nres) * v
 
     return (y, x), (bet, sig), (m, l, v, s)

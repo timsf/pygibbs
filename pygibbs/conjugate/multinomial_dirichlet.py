@@ -122,6 +122,6 @@ def _generate_fixture(nobs: int = 2, nvar: int = 3, seed: int = 666) -> (Data, P
     x = np.random.multinomial(1, pi, nobs)
 
     # set hyperparameters
-    a = np.ones(nvar)
+    a = np.ones(nvar) / nvar
 
     return (x,), (pi,), (a,)

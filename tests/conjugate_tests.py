@@ -26,27 +26,27 @@ class ConsistencyTest(ABC):
         for est, true in zip(self.mod.get_ev(*self.posterior), self.gt):
             np.testing.assert_allclose(est, true, *self.tol)
 
-    def test_logmargin(self, nsamples=int(1e2)):
+    def test_logmargin(self, nsamples=100):
 
         minifix = self.mod._generate_fixture(nobs=nsamples)[0]
         np.testing.assert_allclose(self.mod.eval_logmargin(*minifix, *self.posterior),
                                    self.mod.eval_loglik(*minifix, *self.mod.get_ev(*self.posterior)).sum(),
                                    *self.tol)
 
-    def test_param_sampling(self, nsamples=int(1e2)):
+    def test_param_sampling(self, nsamples=100):
 
         for sample, true in zip(self.mod.sample_param(nsamples, *self.posterior), self.gt):
             np.testing.assert_allclose(np.mean(sample, 0), true, *self.tol)
 
 
+# class ConsistencyTest_mlm_mnorm(ConsistencyTest, unittest.TestCase):
+#     def setUp(self):
+#         super(self.__class__, self).setUp(mlm_mnorm, nobs=int(1e4))
+
+
 class ConsistencyTest_lm_mnorm_chisq(ConsistencyTest, unittest.TestCase):
     def setUp(self):
         super(self.__class__, self).setUp(lm_mnorm_chisq)
-
-
-class ConsistencyTest_mlm_mnorm(ConsistencyTest, unittest.TestCase):
-    def setUp(self):
-        super(self.__class__, self).setUp(mlm_mnorm, nobs=int(1e4))
 
 
 class ConsistencyTest_mlm_mnorm_wishart(ConsistencyTest, unittest.TestCase):

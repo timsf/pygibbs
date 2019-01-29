@@ -1,6 +1,6 @@
 """
-Provides routines for Bayesian linear regression, ie:
-   y[i]|(x, bet) ~ Bernoulli(expit(x[i·] * bet))
+Provides routines for Bayesian poisson regression, ie:
+   y[i]|(x, bet) ~ Poisson(exp(x[i·] * bet))
    where y are responses, x are covariates and bet is the coefficient matrix
 
 The prior distribution over (bet, sig) is normal:
@@ -14,8 +14,8 @@ from typing import Tuple
 
 import numpy as np
 from scipy.linalg import solve_triangular
-from scipy.stats import bernoulli
-from scipy.special import expit
+from scipy.special import gammaln, logsumexp
+from scipy.stats import poisson
 
 from pygibbs.tools.laplace import fit_approx, est_integral
 from pygibbs.tools.linalg import logdet_pd
@@ -42,16 +42,17 @@ def update(y: np.ndarray, x: np.ndarray, m: np.ndarray, l: np.ndarray, w: np.nda
         y = y @ np.diag(w)
 
     def log_posterior(bet):
+        lin_pred = x @ bet
         gam = bet - m
-        return np.sum(eval_loglik(y, x, bet)) - gam @ l @ gam / 2
+        return lin_pred @ y - np.exp(logsumexp(lin_pred)) - gam @ l @ gam / 2
 
     def grad_log_posterior(bet):
-        fitted = expit(x @ bet)
+        fitted = np.exp(x @ bet)
         return (y - fitted) @ x - l @ (bet - m)
 
     def hess_log_posterior(bet):
-        fitted = expit(x @ bet)
-        return -np.sum(np.array([fi * (1 - fi) * np.outer(xi, xi) for fi, xi in zip(fitted, x)]), 0) - l
+        fitted = np.exp(x @ bet)
+        return -np.sum(np.array([fi * np.outer(xi, xi) for fi, xi in zip(fitted, x)]), 0) - l
 
     return fit_approx(np.zeros(m.shape), log_posterior, grad_log_posterior, hess_log_posterior)
 
@@ -82,7 +83,7 @@ def sample_data(ndraws: int, x: np.ndarray, m: np.ndarray, l: np.ndarray) -> np.
 
     bet, = sample_param(ndraws, m, l)
 
-    return np.random.uniform(size=ndraws) < expit(bet @ x)
+    return np.random.poisson(np.exp(bet @ x))
 
 
 def eval_logmargin(y: np.ndarray, x: np.ndarray, m: np.ndarray, l: np.ndarray, w: np.ndarray = None) -> float:
@@ -112,7 +113,7 @@ def eval_loglik(y: np.ndarray, x: np.ndarray, bet: np.ndarray) -> np.ndarray:
     :returns: log likelihood
     """
 
-    return bernoulli.logpmf(y, expit(x @ bet))
+    return poisson.logpmf(y, np.exp(x @ bet))
 
 
 def get_ev(m: np.ndarray, l: np.ndarray) -> Param:
@@ -154,7 +155,7 @@ def _generate_fixture(nobs: int = 3, nvar: int = 2, seed: int = 666) -> (Data, P
 
     # set input
     x = np.random.standard_normal((nobs, nvar))
-    y = np.random.uniform(size=nobs) < expit(x @ bet)
+    y = np.random.poisson(np.exp(x @ bet))
 
     # set hyperparameters
     m = np.zeros(nvar)
