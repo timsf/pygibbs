@@ -19,6 +19,7 @@ from scipy.special import expit
 
 from pygibbs.tools.laplace import fit_approx, est_integral
 from pygibbs.tools.linalg import logdet_pd
+from pygibbs.tools.misc import softplus
 
 
 Data = Tuple[np.ndarray, np.ndarray]
@@ -42,8 +43,9 @@ def update(y: np.ndarray, x: np.ndarray, m: np.ndarray, l: np.ndarray, w: np.nda
         y = y @ np.diag(w)
 
     def log_posterior(bet):
+        lin_pred = x @ bet
         gam = bet - m
-        return np.sum(eval_loglik(y, x, bet)) - gam @ l @ gam / 2
+        return y @ lin_pred - np.sum(softplus(lin_pred)) - gam @ l @ gam / 2
 
     def grad_log_posterior(bet):
         fitted = expit(x @ bet)
@@ -51,7 +53,7 @@ def update(y: np.ndarray, x: np.ndarray, m: np.ndarray, l: np.ndarray, w: np.nda
 
     def hess_log_posterior(bet):
         fitted = expit(x @ bet)
-        return -np.sum(np.array([fi * (1 - fi) * np.outer(xi, xi) for fi, xi in zip(fitted, x)]), 0) - l
+        return -x.T @ np.diag(fitted * (1 - fitted)) @ x - l
 
     return fit_approx(np.zeros(m.shape), log_posterior, grad_log_posterior, hess_log_posterior)
 
@@ -97,11 +99,15 @@ def eval_logmargin(y: np.ndarray, x: np.ndarray, m: np.ndarray, l: np.ndarray, w
     :returns: log marginal likelihood
     """
 
-    def log_joint(bet):
-        gam = bet - m
-        return np.sum(eval_loglik(y, x, bet)) + (logdet_pd(l) - m.shape[0] * np.log(2 * np.pi) - gam @ l @ gam) / 2
+    def log_lik(bet):
+        lin_pred = x @ bet
+        return y @ lin_pred - np.sum(softplus(lin_pred))
 
-    return est_integral(1000, *update(y, x, m, l, w), log_joint)[0]
+    def log_prior(bet):
+        gam = bet - m
+        return (logdet_pd(l) - m.shape[0] * np.log(2 * np.pi) - gam @ l @ gam) / 2
+
+    return est_integral(1000, *update(y, x, m, l, w), log_lik, log_prior)[0]
 
 
 def eval_loglik(y: np.ndarray, x: np.ndarray, bet: np.ndarray) -> np.ndarray:

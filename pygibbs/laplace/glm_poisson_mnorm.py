@@ -44,7 +44,7 @@ def update(y: np.ndarray, x: np.ndarray, m: np.ndarray, l: np.ndarray, w: np.nda
     def log_posterior(bet):
         lin_pred = x @ bet
         gam = bet - m
-        return lin_pred @ y - np.exp(logsumexp(lin_pred)) - gam @ l @ gam / 2
+        return y @ lin_pred - np.exp(logsumexp(lin_pred)) - gam @ l @ gam / 2
 
     def grad_log_posterior(bet):
         fitted = np.exp(x @ bet)
@@ -52,7 +52,7 @@ def update(y: np.ndarray, x: np.ndarray, m: np.ndarray, l: np.ndarray, w: np.nda
 
     def hess_log_posterior(bet):
         fitted = np.exp(x @ bet)
-        return -np.sum(np.array([fi * np.outer(xi, xi) for fi, xi in zip(fitted, x)]), 0) - l
+        return -x.T @ np.diag(fitted) @ x - l
 
     return fit_approx(np.zeros(m.shape), log_posterior, grad_log_posterior, hess_log_posterior)
 
@@ -98,11 +98,15 @@ def eval_logmargin(y: np.ndarray, x: np.ndarray, m: np.ndarray, l: np.ndarray, w
     :returns: log marginal likelihood
     """
 
-    def log_joint(bet):
-        gam = bet - m
-        return np.sum(eval_loglik(y, x, bet)) + (logdet_pd(l) - m.shape[0] * np.log(2 * np.pi) - gam @ l @ gam) / 2
+    def log_lik(bet):
+        lin_pred = x @ bet
+        return y @ lin_pred - np.exp(logsumexp(lin_pred)) - np.sum(gammaln(y + 1))
 
-    return est_integral(1000, *update(y, x, m, l, w), log_joint)[0]
+    def log_prior(bet):
+        gam = bet - m
+        return (logdet_pd(l) - m.shape[0] * np.log(2 * np.pi) - gam @ l @ gam) / 2
+
+    return est_integral(1000, *update(y, x, m, l, w), log_lik, log_prior)[0]
 
 
 def eval_loglik(y: np.ndarray, x: np.ndarray, bet: np.ndarray) -> np.ndarray:

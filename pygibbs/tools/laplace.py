@@ -42,13 +42,14 @@ def fit_approx(init: Param,
     return mN, lN
 
 
-def est_integral(ndraws: int, m: M, l: L, log_obj: Integrand) -> Tuple[float, float]:
+def est_integral(ndraws: int, m: M, l: L, log_int: Integrand, log_mix: Integrand) -> Tuple[float, float]:
     """Use Laplace importance sampling to estimate the integral of the given objective with respect to parameters.
 
     :param ndraws: (>0) number of importance samples
     :param m: mean of laplace approximation
     :param l: precision of laplace approximation
-    :param log_obj: log integrand
+    :param log_int: log integrand
+    :param log_mix: mixing measure
     :returns: estimate of integral, effective sample size
     """
 
@@ -60,8 +61,9 @@ def est_integral(ndraws: int, m: M, l: L, log_obj: Integrand) -> Tuple[float, fl
     theta = m + solve_triangular(cf_l.T, z.T).T
 
     # compute weights and integrand values
-    log_weights = (m.shape[0] * np.log(2 * np.pi)) / 2 - np.sum(np.log(np.diag(cf_l))) + np.sum(z ** 2, 1) / 2
-    log_integrand = np.array([log_obj(the_i) for the_i in theta])
+    log_integrand = np.array([log_int(the_i) for the_i in theta])
+    log_mix = np.array([log_mix(the_i) for the_i in theta])
+    log_weights = (m.shape[0] * np.log(2 * np.pi) + np.sum(z ** 2, 1)) / 2 - np.sum(np.log(np.diag(cf_l))) + log_mix
 
     # finalize estimate
     mean = logsumexp(log_weights + log_integrand) - np.log(ndraws)
